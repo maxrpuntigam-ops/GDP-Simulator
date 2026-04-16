@@ -1,0 +1,1057 @@
+<!DOCTYPE html>
+<html lang="de">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GDP_Simulator</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/highcharts@12.5.0/highcharts.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <style>
+        :root {
+            --sidebar-width: 240px;
+            --sidebar-collapsed-width: 56px;
+            --sidebar-bg: #1a1f2e;
+            --sidebar-accent: #3b82f6;
+            --sidebar-text: #c9d1e0;
+            --sidebar-text-muted: #6b7a99;
+            --sidebar-hover: rgba(59,130,246,0.12);
+            --sidebar-active: rgba(59,130,246,0.22);
+            --transition: 0.22s cubic-bezier(.4,0,.2,1);
+        }
+
+        html, body {
+            height: 100%;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        body {
+            display: flex;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: #f0f4f8;
+        }
+
+        /* ── Sidebar ── */
+        #sidebar {
+            width: var(--sidebar-width);
+            min-width: var(--sidebar-width);
+            background: var(--sidebar-bg);
+            display: flex;
+            flex-direction: column;
+            transition: width var(--transition), min-width var(--transition);
+            overflow: hidden;
+            z-index: 100;
+            box-shadow: 2px 0 12px rgba(0,0,0,0.18);
+        }
+
+        #sidebar.collapsed {
+            width: var(--sidebar-collapsed-width);
+            min-width: var(--sidebar-collapsed-width);
+        }
+
+        .sidebar-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 18px 14px 16px;
+            border-bottom: 1px solid rgba(255,255,255,0.07);
+            min-height: 60px;
+            position: relative;
+            overflow: visible;
+        }
+
+        .sidebar-logo {
+            width: 28px;
+            height: 28px;
+            background: var(--sidebar-accent);
+            border-radius: 7px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            font-size: 14px;
+            font-weight: 700;
+            color: #fff;
+            letter-spacing: -0.5px;
+        }
+
+        .sidebar-title {
+            color: #fff;
+            font-size: 15px;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            opacity: 1;
+            transition: opacity var(--transition), max-width var(--transition);
+            max-width: 140px;
+        }
+
+        #sidebar.collapsed .sidebar-title {
+            opacity: 0;
+            max-width: 0;
+            pointer-events: none;
+        }
+
+        .sidebar-toggle {
+            position: fixed;
+            left: calc(var(--sidebar-width) - 18px);
+            top: 16px;
+            background: var(--sidebar-bg);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 50%;
+            color: var(--sidebar-text-muted);
+            cursor: pointer;
+            padding: 0;
+            width: 24px;
+            height: 24px;
+            flex-shrink: 0;
+            transition: left var(--transition), color var(--transition), background var(--transition);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 200;
+            box-shadow: 0 0 0 3px var(--sidebar-bg);
+        }
+
+        #sidebar.collapsed .sidebar-toggle {
+            left: calc(var(--sidebar-collapsed-width) - 12px);
+        }
+
+        .sidebar-toggle:hover { color: #fff; background: var(--sidebar-accent); border-color: var(--sidebar-accent); }
+
+        .sidebar-toggle svg {
+            transition: transform var(--transition);
+        }
+
+        #sidebar.collapsed .sidebar-toggle svg {
+            transform: rotate(180deg);
+        }
+
+        .sidebar-section-label {
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 1.2px;
+            text-transform: uppercase;
+            color: var(--sidebar-text-muted);
+            padding: 16px 16px 6px;
+            white-space: nowrap;
+            overflow: hidden;
+            opacity: 1;
+            transition: opacity var(--transition);
+        }
+
+        #sidebar.collapsed .sidebar-section-label { opacity: 0; pointer-events: none; }
+
+        .sidebar-nav {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .sidebar-nav li a {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 14px;
+            color: var(--sidebar-text);
+            text-decoration: none;
+            font-size: 14px;
+            white-space: nowrap;
+            border-radius: 0;
+            transition: background var(--transition), color var(--transition);
+            position: relative;
+            cursor: pointer;
+        }
+
+        .sidebar-nav li a:hover {
+            background: var(--sidebar-hover);
+            color: #fff;
+        }
+
+        .sidebar-nav li a.active {
+            background: var(--sidebar-active);
+            color: #fff;
+        }
+
+        .sidebar-nav li a.active::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 3px;
+            background: var(--sidebar-accent);
+            border-radius: 0 2px 2px 0;
+        }
+
+        .sidebar-nav li a svg {
+            flex-shrink: 0;
+            width: 18px;
+            height: 18px;
+        }
+
+        .nav-label {
+            opacity: 1;
+            transition: opacity var(--transition);
+            overflow: hidden;
+        }
+
+        #sidebar.collapsed .nav-label { opacity: 0; pointer-events: none; }
+
+        .sidebar-footer {
+            margin-top: auto;
+            border-top: 1px solid rgba(255,255,255,0.07);
+            padding: 12px 14px;
+            color: var(--sidebar-text-muted);
+            font-size: 11px;
+            white-space: nowrap;
+            overflow: hidden;
+            opacity: 1;
+            transition: opacity var(--transition);
+        }
+
+        #sidebar.collapsed .sidebar-footer { opacity: 0; pointer-events: none; }
+
+        .sidebar-nav li { position: relative; }
+
+        #sidebar.collapsed .sidebar-nav li a::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            left: calc(var(--sidebar-collapsed-width) + 8px);
+            top: 50%;
+            transform: translateY(-50%);
+            background: #1a1f2e;
+            color: #fff;
+            font-size: 12px;
+            padding: 4px 10px;
+            border-radius: 6px;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.15s;
+            z-index: 200;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+
+        #sidebar.collapsed .sidebar-nav li a:hover::after { opacity: 1; }
+
+        /* ── Main Content ── */
+        #main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        #topbar {
+            background: #fff;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 0 20px;
+            height: 52px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-shrink: 0;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+        }
+
+        #topbar h1 {
+            font-size: 15px;
+            font-weight: 600;
+            color: #1a202c;
+            margin: 0;
+        }
+
+        .topbar-spacer { flex: 1; }
+
+        #content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        .view { display: none; }
+        .view.active { display: block; }
+
+        .controls-card {
+            background: #fff;
+            border-radius: 10px;
+            padding: 16px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+            margin-bottom: 16px;
+        }
+
+        .controls-card .input-group { margin-bottom: 0; }
+        .controls-card .input-group + .input-group { margin-top: 10px; }
+
+        #chart-card {
+            background: #fff;
+            border-radius: 10px;
+            padding: 16px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+            position: relative;
+        }
+
+        #myChart {
+            width: 100%;
+            min-height: 380px;
+        }
+
+        #chart-card.fullscreen-mode {
+            position: fixed;
+            inset: 0;
+            border-radius: 0;
+            z-index: 9999;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #chart-card.fullscreen-mode #myChart {
+            flex: 1;
+            min-height: 0;
+        }
+
+        .chart-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .btn-icon {
+            background: #f1f5f9;
+            border: 1px solid #e2e8f0;
+            border-radius: 7px;
+            color: #475569;
+            width: 34px;
+            height: 34px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: background 0.15s, color 0.15s;
+        }
+
+        .btn-icon:hover { background: #e2e8f0; color: #1a202c; }
+
+        .info-card {
+            background: #fff;
+            border-radius: 10px;
+            padding: 24px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+            margin-bottom: 16px;
+            max-width: 680px;
+        }
+
+        .info-card h5 { color: #1a202c; margin-bottom: 10px; font-size: 15px; }
+        .info-card p, .info-card li { color: #475569; font-size: 14px; line-height: 1.7; }
+
+        .badge-indicator {
+            display: inline-block;
+            background: #eff6ff;
+            color: #2563eb;
+            border-radius: 5px;
+            font-size: 12px;
+            font-weight: 600;
+            padding: 2px 8px;
+            margin-right: 6px;
+            margin-bottom: 4px;
+        }
+
+        #chart-loading {
+            display: none;
+            position: absolute;
+            inset: 0;
+            background: rgba(255,255,255,0.8);
+            align-items: center;
+            justify-content: center;
+            border-radius: 10px;
+            z-index: 10;
+            font-size: 14px;
+            color: #475569;
+            gap: 10px;
+        }
+
+        #chart-loading.active { display: flex; }
+
+        .spinner {
+            width: 18px;
+            height: 18px;
+            border: 2px solid #e2e8f0;
+            border-top-color: #3b82f6;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        #chart-placeholder {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 380px;
+            color: #94a3b8;
+            font-size: 14px;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        #chart-placeholder svg { opacity: 0.3; }
+
+        /* Farb-Legende */
+        .color-legend {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            margin-bottom: 8px;
+            font-size: 12px;
+            color: #475569;
+        }
+
+        .color-legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .color-legend-dot {
+            width: 12px;
+            height: 3px;
+            border-radius: 2px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- ── Sidebar ── -->
+    <nav id="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-logo">G</div>
+            <span class="sidebar-title">GDP Simulator</span>
+            <button class="sidebar-toggle" id="sidebarToggle" title="Sidebar ein-/ausklappen">
+                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="18" height="18">
+                    <path d="M13 15l-5-5 5-5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </button>
+        </div>
+
+        <div class="sidebar-section-label">Navigation</div>
+
+        <ul class="sidebar-nav">
+            <li>
+                <a href="#" class="active" data-view="view-chart" data-tooltip="Ländervergleich">
+                    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7">
+                        <polyline points="2,14 7,9 11,12 18,5" stroke-linecap="round" stroke-linejoin="round"/>
+                        <line x1="2" y1="18" x2="18" y2="18" stroke-linecap="round"/>
+                    </svg>
+                    <span class="nav-label">Ländervergleich</span>
+                </a>
+            </li>
+            <li>
+                <a href="#" data-view="view-info" data-tooltip="Indikatoren">
+                    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7">
+                        <circle cx="10" cy="10" r="8"/>
+                        <line x1="10" y1="9" x2="10" y2="14" stroke-linecap="round"/>
+                        <circle cx="10" cy="6.5" r="0.8" fill="currentColor" stroke="none"/>
+                    </svg>
+                    <span class="nav-label">Indikatoren</span>
+                </a>
+            </li>
+        </ul>
+
+        <div class="sidebar-section-label">Datenquelle</div>
+
+        <ul class="sidebar-nav">
+            <li>
+                <a href="https://data.worldbank.org" target="_blank" data-tooltip="World Bank">
+                    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7">
+                        <circle cx="10" cy="10" r="8"/>
+                        <ellipse cx="10" cy="10" rx="3.5" ry="8"/>
+                        <line x1="2" y1="10" x2="18" y2="10"/>
+                    </svg>
+                    <span class="nav-label">World Bank API</span>
+                </a>
+            </li>
+        </ul>
+
+        <div class="sidebar-footer">
+            © 2025 GDP Simulator
+        </div>
+    </nav>
+
+    <!-- ── Main ── -->
+    <div id="main">
+        <div id="topbar">
+            <h1 id="topbar-title">Ländervergleich</h1>
+            <div class="topbar-spacer"></div>
+        </div>
+
+        <div id="content">
+
+            <!-- View: Chart -->
+            <div class="view active" id="view-chart">
+
+                <div class="controls-card">
+                    <div class="input-group">
+                        <span class="input-group-text">Land 1</span>
+                        <input list="laender-liste" id="land-input1" class="form-control" placeholder="Land suchen..." autocomplete="off">
+                        <input type="hidden" id="land-iso-code1">
+                        <span class="input-group-text">Land 2</span>
+                        <input list="laender-liste" id="land-input2" class="form-control" placeholder="Land suchen..." autocomplete="off">
+                        <input type="hidden" id="land-iso-code2">
+                    </div>
+                    <div class="input-group">
+                        <span class="input-group-text">Indikator</span>
+                        <select id="indikator" class="form-select">
+                            <option value="NY.GDP.MKTP.CD" data-label="Gesamt-GDP" data-unit="Mrd. US$" data-divisor="1000000000" data-decimals="0">Gesamt-GDP (Milliarden USD)</option>
+                            <option value="NY.GDP.PCAP.CD" data-label="GDP pro Kopf" data-unit="US$/Person" data-divisor="1" data-decimals="0">GDP pro Kopf (USD/Person, nominell)</option>
+                            <option value="NY.GDP.PCAP.PP.CD" data-label="GDP pro Kopf (KKP)" data-unit="Int. $/Person" data-divisor="1" data-decimals="0">GDP pro Kopf, kaufkraftbereinigt (KKP)</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <span class="input-group-text">Startjahr</span>
+                        <input type="number" id="startjahr" min="1960" max="2024" step="1" value="2000" class="form-control">
+                        <span class="input-group-text">Endjahr</span>
+                        <input type="number" id="endjahr" min="1960" max="2024" step="1" value="2024" class="form-control">
+                        <button id="reload" class="btn btn-primary">Reload</button>
+                    </div>
+                </div>
+
+                <div id="chart-card">
+                    <div id="chart-loading">
+                        <div class="spinner"></div>
+                        <span>Daten werden geladen…</span>
+                    </div>
+                    <div class="chart-toolbar">
+                        <button class="btn btn-outline-secondary btn-sm" id="toggleNormalize" onclick="toggleNormalize()">
+                            Wachstum indexieren (100)
+                        </button>
+                        <small class="text-muted" id="normalizeHint"></small>
+                        <div class="topbar-spacer"></div>
+                        <button class="btn-icon" id="fullscreenBtn" title="Vollbild" onclick="toggleFullscreen()">
+                            <svg id="fs-icon-expand" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" width="16" height="16">
+                                <path d="M3 7V3h4M13 3h4v4M17 13v4h-4M7 17H3v-4" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                            <svg id="fs-icon-collapse" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" width="16" height="16" style="display:none">
+                                <path d="M7 3v4H3M17 7h-4V3M3 13h4v4M13 17v-4h4" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </button>
+                    </div>
+
+                    <!-- Farb-Legende -->
+                    <div class="color-legend" id="colorLegend" style="display:none"></div>
+
+                    <div id="myChart">
+                        <div id="chart-placeholder">
+                            <svg viewBox="0 0 48 48" width="48" height="48" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="4,36 14,24 22,30 34,14 44,18"/>
+                                <line x1="4" y1="44" x2="44" y2="44"/>
+                            </svg>
+                            <span>Bitte ein oder zwei Länder auswählen und auf <strong>Reload</strong> klicken.</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- View: Info -->
+            <div class="view" id="view-info">
+                <div class="info-card">
+                    <h5>Verfügbare Indikatoren</h5>
+                    <p>Der Simulator nutzt die offizielle <strong>World Bank Open Data API</strong> und unterstützt folgende Kennzahlen:</p>
+                    <p>
+                        <span class="badge-indicator">NY.GDP.MKTP.CD</span> <strong>Gesamt-GDP</strong> — Bruttoinlandsprodukt in Milliarden US-Dollar (nominell, laufende Preise).<br><br>
+                        <span class="badge-indicator">NY.GDP.PCAP.CD</span> <strong>GDP pro Kopf</strong> — Nominelles BIP je Einwohner in USD. Ermöglicht direkten Wohlstandsvergleich.<br><br>
+                        <span class="badge-indicator">NY.GDP.PCAP.PP.CD</span> <strong>GDP pro Kopf (KKP)</strong> — Kaufkraftbereinigtes BIP je Einwohner in Internationalen Dollar. Berücksichtigt unterschiedliche Preisniveaus.
+                    </p>
+                </div>
+                <div class="info-card">
+                    <h5>Funktionen</h5>
+                    <ul>
+                        <li><strong>Ländervergleich</strong> — Zwei Länder gleichzeitig im Zeitverlauf vergleichen.</li>
+                        <li><strong>Indexierung</strong> — Wachstum relativ zum Startjahr (= 100) anzeigen, um prozentuale Entwicklung direkt ablesbar zu machen.</li>
+                        <li><strong>Vollbild</strong> — Chart auf den gesamten Bildschirm ausweiten für Präsentationen.</li>
+                        <li><strong>Zeitraum frei wählbar</strong> — Daten von 1960 bis 2024.</li>
+                    </ul>
+                </div>
+                <div class="info-card">
+                    <h5>Farb-Kodierung</h5>
+                    <p>
+                        <strong>Land 1:</strong> Grün = steigend, Rot = fallend<br>
+                        <strong>Land 2:</strong> Blau = steigend, Orange = fallend
+                    </p>
+                </div>
+                <div class="info-card">
+                    <h5>Datenquelle</h5>
+                    <p>Alle Daten stammen von der <a href="https://data.worldbank.org" target="_blank">World Bank Open Data</a> Plattform und werden live über die offizielle REST-API abgerufen. Keine Daten werden lokal gespeichert.</p>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Datalist -->
+    <datalist id="laender-liste">
+        <option data-value="AFG" value="Afghanistan">
+        <option data-value="EGY" value="Ägypten">
+        <option data-value="ALB" value="Albanien">
+        <option data-value="DZA" value="Algerien">
+        <option data-value="AND" value="Andorra">
+        <option data-value="AGO" value="Angola">
+        <option data-value="ATG" value="Antigua und Barbuda">
+        <option data-value="GNQ" value="Äquatorialguinea">
+        <option data-value="ARG" value="Argentinien">
+        <option data-value="ARM" value="Armenien">
+        <option data-value="AZE" value="Aserbaidschan">
+        <option data-value="ETH" value="Äthiopien">
+        <option data-value="AUS" value="Australien">
+        <option data-value="BHS" value="Bahamas">
+        <option data-value="BHR" value="Bahrain">
+        <option data-value="BGD" value="Bangladesch">
+        <option data-value="BRB" value="Barbados">
+        <option data-value="BLR" value="Belarus">
+        <option data-value="BEL" value="Belgien">
+        <option data-value="BLZ" value="Belize">
+        <option data-value="BEN" value="Benin">
+        <option data-value="BTN" value="Bhutan">
+        <option data-value="BOL" value="Bolivien">
+        <option data-value="BIH" value="Bosnien und Herzegowina">
+        <option data-value="BWA" value="Botswana">
+        <option data-value="BRA" value="Brasilien">
+        <option data-value="BRN" value="Brunei">
+        <option data-value="BGR" value="Bulgarien">
+        <option data-value="BFA" value="Burkina Faso">
+        <option data-value="BDI" value="Burundi">
+        <option data-value="CPV" value="Cabo Verde">
+        <option data-value="CHL" value="Chile">
+        <option data-value="CHN" value="China">
+        <option data-value="COK" value="Cookinseln">
+        <option data-value="CRI" value="Costa Rica">
+        <option data-value="CIV" value="Côte d'Ivoire">
+        <option data-value="DNK" value="Dänemark">
+        <option data-value="DEU" value="Deutschland">
+        <option data-value="DMA" value="Dominica">
+        <option data-value="DOM" value="Dominikanische Republik">
+        <option data-value="DJI" value="Dschibuti">
+        <option data-value="ECU" value="Ecuador">
+        <option data-value="SLV" value="El Salvador">
+        <option data-value="ERI" value="Eritrea">
+        <option data-value="EST" value="Estland">
+        <option data-value="SWZ" value="Eswatini">
+        <option data-value="FJI" value="Fidschi">
+        <option data-value="FIN" value="Finnland">
+        <option data-value="FRA" value="Frankreich">
+        <option data-value="GAB" value="Gabun">
+        <option data-value="GMB" value="Gambia">
+        <option data-value="GEO" value="Georgien">
+        <option data-value="GHA" value="Ghana">
+        <option data-value="GRD" value="Grenada">
+        <option data-value="GRC" value="Griechenland">
+        <option data-value="GTM" value="Guatemala">
+        <option data-value="GIN" value="Guinea">
+        <option data-value="GNB" value="Guinea-Bissau">
+        <option data-value="GUY" value="Guyana">
+        <option data-value="HTI" value="Haiti">
+        <option data-value="HND" value="Honduras">
+        <option data-value="IND" value="Indien">
+        <option data-value="IDN" value="Indonesien">
+        <option data-value="IRQ" value="Irak">
+        <option data-value="IRN" value="Iran">
+        <option data-value="IRL" value="Irland">
+        <option data-value="ISL" value="Island">
+        <option data-value="ISR" value="Israel">
+        <option data-value="ITA" value="Italien">
+        <option data-value="JAM" value="Jamaika">
+        <option data-value="JPN" value="Japan">
+        <option data-value="YEM" value="Jemen">
+        <option data-value="JOR" value="Jordanien">
+        <option data-value="KHM" value="Kambodscha">
+        <option data-value="CMR" value="Kamerun">
+        <option data-value="CAN" value="Kanada">
+        <option data-value="KAZ" value="Kasachstan">
+        <option data-value="QAT" value="Katar">
+        <option data-value="KEN" value="Kenia">
+        <option data-value="KGZ" value="Kirgisistan">
+        <option data-value="KIR" value="Kiribati">
+        <option data-value="COL" value="Kolumbien">
+        <option data-value="COM" value="Komoren">
+        <option data-value="COD" value="Kongo (Dem. Rep.)">
+        <option data-value="COG" value="Kongo (Rep.)">
+        <option data-value="PRK" value="Korea (Nord-)">
+        <option data-value="KOR" value="Korea (Süd-)">
+        <option data-value="XKX" value="Kosovo">
+        <option data-value="HRV" value="Kroatien">
+        <option data-value="CUB" value="Kuba">
+        <option data-value="KWT" value="Kuwait">
+        <option data-value="LAO" value="Laos">
+        <option data-value="LSO" value="Lesotho">
+        <option data-value="LVA" value="Lettland">
+        <option data-value="LBN" value="Libanon">
+        <option data-value="LBR" value="Liberia">
+        <option data-value="LBY" value="Libyen">
+        <option data-value="LIE" value="Liechtenstein">
+        <option data-value="LTU" value="Litauen">
+        <option data-value="LUX" value="Luxemburg">
+        <option data-value="MDG" value="Madagaskar">
+        <option data-value="MWI" value="Malawi">
+        <option data-value="MDV" value="Malediven">
+        <option data-value="MYS" value="Malaysia">
+        <option data-value="MLI" value="Mali">
+        <option data-value="MLT" value="Malta">
+        <option data-value="MAR" value="Marokko">
+        <option data-value="MHL" value="Marshallinseln">
+        <option data-value="MRT" value="Mauretanien">
+        <option data-value="MUS" value="Mauritius">
+        <option data-value="MKD" value="Nordmazedonien">
+        <option data-value="MEX" value="Mexiko">
+        <option data-value="FSM" value="Mikronesien">
+        <option data-value="MDA" value="Moldau">
+        <option data-value="MCO" value="Monaco">
+        <option data-value="MNG" value="Mongolei">
+        <option data-value="MNE" value="Montenegro">
+        <option data-value="MOZ" value="Mosambik">
+        <option data-value="MMR" value="Myanmar">
+        <option data-value="NAM" value="Namibia">
+        <option data-value="NRU" value="Nauru">
+        <option data-value="NPL" value="Nepal">
+        <option data-value="NZL" value="Neuseeland">
+        <option data-value="NIC" value="Nicaragua">
+        <option data-value="NLD" value="Niederlande">
+        <option data-value="NER" value="Niger">
+        <option data-value="NGA" value="Nigeria">
+        <option data-value="NIU" value="Niue">
+        <option data-value="NOR" value="Norwegen">
+        <option data-value="OMN" value="Oman">
+        <option data-value="PAK" value="Pakistan">
+        <option data-value="PLW" value="Palau">
+        <option data-value="PAN" value="Panama">
+        <option data-value="PNG" value="Papua-Neuguinea">
+        <option data-value="PRY" value="Paraguay">
+        <option data-value="PER" value="Peru">
+        <option data-value="PHL" value="Philippinen">
+        <option data-value="POL" value="Polen">
+        <option data-value="PRT" value="Portugal">
+        <option data-value="RWA" value="Ruanda">
+        <option data-value="ROU" value="Rumänien">
+        <option data-value="RUS" value="Russland">
+        <option data-value="SLB" value="Salomonen">
+        <option data-value="ZMB" value="Sambia">
+        <option data-value="WSM" value="Samoa">
+        <option data-value="SMR" value="San Marino">
+        <option data-value="STP" value="São Tomé und Príncipe">
+        <option data-value="SAU" value="Saudi-Arabien">
+        <option data-value="SEN" value="Senegal">
+        <option data-value="SRB" value="Serbien">
+        <option data-value="SLE" value="Sierra Leone">
+        <option data-value="ZWE" value="Simbabwe">
+        <option data-value="SGP" value="Singapur">
+        <option data-value="SVK" value="Slowakei">
+        <option data-value="SVN" value="Slowenien">
+        <option data-value="SOM" value="Somalia">
+        <option data-value="ESP" value="Spanien">
+        <option data-value="LKA" value="Sri Lanka">
+        <option data-value="KNA" value="St. Kitts und Nevis">
+        <option data-value="LCA" value="St. Lucia">
+        <option data-value="VCT" value="St. Vincent und die Grenadinen">
+        <option data-value="ZAF" value="Südafrika">
+        <option data-value="SDN" value="Sudan">
+        <option data-value="SSD" value="Südsudan">
+        <option data-value="SUR" value="Suriname">
+        <option data-value="SYR" value="Syrien">
+        <option data-value="TJK" value="Tadschikistan">
+        <option data-value="TZA" value="Tansania">
+        <option data-value="THA" value="Thailand">
+        <option data-value="TLS" value="Timor-Leste">
+        <option data-value="TGO" value="Togo">
+        <option data-value="TON" value="Tonga">
+        <option data-value="TTO" value="Trinidad und Tobago">
+        <option data-value="TCD" value="Tschad">
+        <option data-value="CZE" value="Tschechien">
+        <option data-value="TUN" value="Tunesien">
+        <option data-value="TUR" value="Türkei">
+        <option data-value="TKM" value="Turkmenistan">
+        <option data-value="TUV" value="Tuvalu">
+        <option data-value="UGA" value="Uganda">
+        <option data-value="UKR" value="Ukraine">
+        <option data-value="HUN" value="Ungarn">
+        <option data-value="URY" value="Uruguay">
+        <option data-value="UZB" value="Usbekistan">
+        <option data-value="VUT" value="Vanuatu">
+        <option data-value="VEN" value="Venezuela">
+        <option data-value="ARE" value="Vereinigte Arabische Emirate">
+        <option data-value="USA" value="USA">
+        <option data-value="GBR" value="Großbritannien">
+        <option data-value="VNM" value="Vietnam">
+        <option data-value="CAF" value="Zentralafrikanische Republik">
+        <option data-value="CYP" value="Zypern">
+        <option data-value="AUT" value="Österreich">
+        <option data-value="CHE" value="Schweiz">
+        <option data-value="SWE" value="Schweden">
+    </datalist>
+
+    <script>
+        // ── ISO-Code Lookup Map ──
+        const isoMap = {};
+        document.querySelectorAll('#laender-liste option').forEach(opt => {
+            isoMap[opt.value] = opt.getAttribute('data-value');
+        });
+
+        function resolveIso(inputValue) {
+            return isoMap[inputValue] || null;
+        }
+
+        // Farb-Paare pro Land
+        const colorPairs = [
+            { up: '#16a34a', down: '#dc2626' }, // Land 1: Grün / Rot
+            { up: '#2563eb', down: '#f97316' }  // Land 2: Blau / Orange
+        ];
+
+        // ── Sidebar Toggle ──
+        const sidebar = document.getElementById('sidebar');
+        document.getElementById('sidebarToggle').addEventListener('click', () => {
+            sidebar.classList.toggle('collapsed');
+        });
+
+        // ── View Navigation ──
+        const topbarTitle = document.getElementById('topbar-title');
+        const viewTitles = { 'view-chart': 'Ländervergleich', 'view-info': 'Indikatoren & Info' };
+
+        document.querySelectorAll('.sidebar-nav a[data-view]').forEach(link => {
+            link.addEventListener('click', e => {
+                e.preventDefault();
+                const viewId = link.getAttribute('data-view');
+                document.querySelectorAll('.sidebar-nav a').forEach(l => l.classList.remove('active'));
+                link.classList.add('active');
+                document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+                document.getElementById(viewId).classList.add('active');
+                topbarTitle.textContent = viewTitles[viewId] || '';
+            });
+        });
+
+        // ── Chart Logic ──
+        let chartGDP;
+        let rawSeries = [];
+        let isNormalized = false;
+        let isFullscreen = false;
+
+        document.getElementById("reload").addEventListener("click", fetchAndDrawChart);
+
+        function getIndicatorMeta() {
+            const sel = document.getElementById('indikator');
+            const opt = sel.options[sel.selectedIndex];
+            return {
+                code: sel.value,
+                label: opt.getAttribute('data-label'),
+                unit: opt.getAttribute('data-unit'),
+                divisor: parseFloat(opt.getAttribute('data-divisor')),
+                decimals: parseInt(opt.getAttribute('data-decimals'))
+            };
+        }
+
+        function showLoading(show) {
+            document.getElementById('chart-loading').classList.toggle('active', show);
+        }
+
+        function showError(msg) {
+            const el = document.getElementById('myChart');
+            el.innerHTML = `<div id="chart-placeholder"><span style="color:#ef4444">${msg}</span></div>`;
+            document.getElementById('colorLegend').style.display = 'none';
+        }
+
+        function updateColorLegend(seriesNames) {
+            const legend = document.getElementById('colorLegend');
+            legend.innerHTML = '';
+            seriesNames.forEach((name, i) => {
+                const pair = colorPairs[i] || colorPairs[0];
+                legend.innerHTML += `
+                    <span style="font-weight:600;font-size:12px;color:#1a202c;margin-right:2px">${name}:</span>
+                    <span class="color-legend-item">
+                        <span class="color-legend-dot" style="background:${pair.up}"></span> steigend
+                    </span>
+                    <span class="color-legend-item">
+                        <span class="color-legend-dot" style="background:${pair.down}"></span> fallend
+                    </span>
+                    ${i < seriesNames.length - 1 ? '<span style="color:#cbd5e1;margin:0 4px">|</span>' : ''}
+                `;
+            });
+            legend.style.display = 'flex';
+        }
+
+        function fetchAndDrawChart() {
+            const landName1 = document.getElementById('land-input1').value.trim();
+            const landName2 = document.getElementById('land-input2').value.trim();
+            const iso1 = resolveIso(landName1);
+            const iso2 = resolveIso(landName2);
+
+            if (!iso1 && !iso2) {
+                showError('Bitte mindestens ein Land aus der Liste auswählen.');
+                return;
+            }
+
+            const startjahr = document.getElementById("startjahr").value;
+            const endjahr = document.getElementById("endjahr").value;
+
+            if (parseInt(startjahr) > parseInt(endjahr)) {
+                showError('Startjahr darf nicht größer als Endjahr sein.');
+                return;
+            }
+
+            const meta = getIndicatorMeta();
+            const buildUrl = iso =>
+                `https://api.worldbank.org/v2/country/${iso}/indicator/${meta.code}?format=json&date=${startjahr}:${endjahr}&per_page=100`;
+
+            showLoading(true);
+
+            const promises = [
+                iso1 ? axios.get(buildUrl(iso1)).catch(() => null) : Promise.resolve(null),
+                iso2 ? axios.get(buildUrl(iso2)).catch(() => null) : Promise.resolve(null)
+            ];
+
+            Promise.all(promises).then(([resp1, resp2]) => {
+                showLoading(false);
+                const series = [];
+
+                const processSerie = (resp, name) => {
+                    if (!resp || !resp.data || !resp.data[1]) return;
+                    const points = resp.data[1]
+                        .filter(d => d.value !== null)
+                        .map(d => [parseInt(d.date), d.value / meta.divisor]);
+                    points.sort((a, b) => a[0] - b[0]);
+                    if (points.length > 0) {
+                        series.push({ name, type: "line", data: points, yAxis: 0 });
+                    }
+                };
+
+                processSerie(resp1, landName1 || 'Land 1');
+                processSerie(resp2, landName2 || 'Land 2');
+
+                if (series.length === 0) {
+                    showError('Keine Daten für die gewählte Kombination gefunden.');
+                    return;
+                }
+
+                rawSeries = series;
+                isNormalized = false;
+                const btn = document.getElementById('toggleNormalize');
+                btn.classList.remove('btn-secondary');
+                btn.classList.add('btn-outline-secondary');
+                btn.textContent = 'Wachstum indexieren (100)';
+                document.getElementById('normalizeHint').textContent = '';
+
+                const chartEl = document.getElementById('myChart');
+                const placeholder = document.getElementById('chart-placeholder');
+                if (placeholder) placeholder.remove();
+
+                updateColorLegend(series.map(s => s.name));
+                drawChart(series, false, meta);
+            }).catch(() => {
+                showLoading(false);
+                showError('Fehler beim Abrufen der Daten. Bitte Internetverbindung prüfen.');
+            });
+        }
+
+        function buildColoredSegments(serie, colorPair, meta, normalized) {
+            const segments = [];
+            const data = serie.data;
+
+            for (let i = 0; i < data.length - 1; i++) {
+                const curr = data[i][1];
+                const next = data[i + 1][1];
+                const color = next >= curr ? colorPair.up : colorPair.down;
+
+                segments.push({
+                    name: serie.name,
+                    type: 'line',
+                    data: [data[i], data[i + 1]],
+                    color: color,
+                    lineWidth: 2.5,
+                    marker: {
+                        enabled: i === 0,
+                        radius: 3,
+                        fillColor: color
+                    },
+                    showInLegend: false,
+                    linkedTo: i > 0 ? ':previous' : undefined,
+                    yAxis: 0,
+                    tooltip: {
+                        valueSuffix: normalized ? "" : " " + meta.unit,
+                        valueDecimals: normalized ? 1 : meta.decimals,
+                        headerFormat: '<span style="font-size:11px">{point.key}</span><br>',
+                        pointFormat: `<span style="color:{point.color}">●</span> ${serie.name}: <b>{point.y}</b><br>`
+                    }
+                });
+            }
+            return segments;
+        }
+
+        function drawChart(series, normalized, meta) {
+            if (!meta) meta = getIndicatorMeta();
+            if (chartGDP) chartGDP.destroy();
+
+            const allSegments = series.flatMap((serie, i) =>
+                buildColoredSegments(serie, colorPairs[i] || colorPairs[0], meta, normalized)
+            );
+
+            chartGDP = Highcharts.chart("myChart", {
+                chart: { animation: true },
+                title: { text: meta.label },
+                xAxis: { type: "category" },
+                yAxis: [{
+                    title: { text: normalized ? "Index (Startjahr = 100)" : meta.unit }
+                }],
+                legend: { enabled: false },
+                tooltip: { shared: false },
+                series: allSegments
+            });
+        }
+
+        function toggleNormalize() {
+            if (rawSeries.length === 0) return;
+            isNormalized = !isNormalized;
+            const btn = document.getElementById('toggleNormalize');
+            const hint = document.getElementById('normalizeHint');
+            const meta = getIndicatorMeta();
+            if (isNormalized) {
+                const normalizedSeries = rawSeries.map(s => ({
+                    ...s,
+                    data: s.data.map(point => [point[0], (point[1] / s.data[0][1]) * 100])
+                }));
+                drawChart(normalizedSeries, true, meta);
+                btn.classList.remove('btn-outline-secondary');
+                btn.classList.add('btn-secondary');
+                btn.textContent = 'Originale Werte anzeigen';
+                hint.textContent = 'Startjahr = 100';
+            } else {
+                drawChart(rawSeries, false, meta);
+                btn.classList.remove('btn-secondary');
+                btn.classList.add('btn-outline-secondary');
+                btn.textContent = 'Wachstum indexieren (100)';
+                hint.textContent = '';
+            }
+        }
+
+        // ── Fullscreen ──
+        function toggleFullscreen() {
+            const card = document.getElementById('chart-card');
+            isFullscreen = !isFullscreen;
+            card.classList.toggle('fullscreen-mode', isFullscreen);
+            document.getElementById('fs-icon-expand').style.display = isFullscreen ? 'none' : 'block';
+            document.getElementById('fs-icon-collapse').style.display = isFullscreen ? 'block' : 'none';
+            setTimeout(() => {
+                if (chartGDP) chartGDP.reflow();
+            }, 50);
+        }
+
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape' && isFullscreen) toggleFullscreen();
+        });
+    </script>
+
+</body>
+</html>
